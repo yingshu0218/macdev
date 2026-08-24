@@ -21,11 +21,29 @@ const Icon = ({ name }: { name: "grid" | "folder" | "clock" | "link" | "server" 
   return <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 };
 
-const nav = [
-  ["工作台", "grid"], ["项目与标签", "folder"], ["操作历史", "clock"], ["服务商连接", "link"]
-] as const;
+type PageId = "workbench" | "projects" | "history" | "connections" | "servers" | "settings";
+
+const nav = [["workbench", "工作台", "grid"], ["projects", "项目与标签", "folder"], ["history", "操作历史", "clock"], ["connections", "服务商连接", "link"]] as const;
+const pageTitles: Record<PageId, [string, string]> = {
+  workbench: ["DNS 工作台", "统一查看和维护所有域名"], projects: ["项目与标签", "按业务组织域名和开发资源"], history: ["操作历史", "查看同步、修改和删除操作"],
+  connections: ["服务商连接", "统一管理 DNS 服务商账号"], servers: ["服务器管理", "查看服务器资产与在线状态"], settings: ["系统设置", "管理桌面应用和安全选项"]
+};
+const moduleRows: Record<Exclude<PageId, "workbench">, string[][]> = {
+  projects: [["默认项目", "3 个域名", "刚刚更新"], ["API 工作室", "1 个域名", "2 小时前"], ["个人实验室", "1 个域名", "昨天"]],
+  history: [["同步域名", "成功", "刚刚"], ["更新解析 example.com", "成功", "18 分钟前"], ["测试 DNSPod 连接", "成功", "昨天"]],
+  connections: [["阿里云", "主账号", "已连接"], ["腾讯云", "主账号", "已连接"], ["DNSPod", "主账号", "已连接"]],
+  servers: [["production-01", "47.100.10.8", "在线"], ["staging-01", "43.138.22.16", "在线"], ["backup-node", "10.0.0.12", "离线"]],
+  settings: [["桌面模式", "数据保存在本机", "已启用"], ["自动检查更新", "启动时检查新版本", "已启用"], ["应用锁", "离开时保护敏感数据", "未启用"]]
+};
+
+function ModulePage({ page }: { page: Exclude<PageId, "workbench"> }) {
+  const headings: Record<typeof page, string[]> = { projects: ["名称", "资源", "最近更新"], history: ["操作", "结果", "时间"], connections: ["服务商", "账号", "状态"], servers: ["服务器", "地址", "状态"], settings: ["设置项", "说明", "当前状态"] };
+  return <section className="module-page"><div className="module-head"><div><h2>{pageTitles[page][0]}</h2><p>{pageTitles[page][1]}</p></div><button className="primary">{page === "settings" ? "保存设置" : page === "history" ? "导出记录" : "添加"}</button></div>
+    <div className="module-table"><div className="module-row module-labels">{headings[page].map((item) => <span key={item}>{item}</span>)}</div>{moduleRows[page].map((row) => <button className="module-row" key={row[0]}>{row.map((item, index) => <span key={item} className={index === 2 ? "row-status" : ""}>{item}</span>)}<Icon name="chevron"/></button>)}</div></section>;
+}
 
 function App() {
+  const [activePage, setActivePage] = useState<PageId>("workbench");
   const [query, setQuery] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [synced, setSynced] = useState(false);
@@ -36,28 +54,29 @@ function App() {
     setSyncing(true); setSynced(false);
     window.setTimeout(() => { setSyncing(false); setSynced(true); }, 900);
   };
+  const navigate = (page: PageId) => { setActivePage(page); setSelected(null); setSynced(false); setSyncing(false); };
 
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand"><span className="brand-mark">&lt;/&gt;</span><span>开发管理助手</span></div>
       <div className="nav-section"><div className="section-title"><span>DNS 管理</span><span>⌃</span></div>
-        {nav.map(([label, icon]) => <button key={label} className={`nav-item ${label === "工作台" ? "active" : ""}`}><Icon name={icon}/><span>{label}</span></button>)}
+        {nav.map(([id, label, icon]) => <button key={id} onClick={() => navigate(id)} aria-current={activePage === id ? "page" : undefined} className={`nav-item ${activePage === id ? "active" : ""}`}><Icon name={icon}/><span>{label}</span></button>)}
       </div>
       <div className="nav-divider" />
-      <button className="nav-item"><Icon name="server"/><span>服务器管理</span><span className="nav-tail">›</span></button>
-      <button className="nav-item"><Icon name="settings"/><span>系统设置</span><span className="nav-tail">›</span></button>
+      <button onClick={() => navigate("servers")} className={`nav-item ${activePage === "servers" ? "active" : ""}`}><Icon name="server"/><span>服务器管理</span><span className="nav-tail">›</span></button>
+      <button onClick={() => navigate("settings")} className={`nav-item ${activePage === "settings" ? "active" : ""}`}><Icon name="settings"/><span>系统设置</span><span className="nav-tail">›</span></button>
       <div className="sidebar-foot"><span className="status-dot"/> 本地桌面模式 <span className="version">v0.1</span></div>
     </aside>
 
     <main className="main">
-      <header className="topbar"><div><h1>DNS 工作台</h1><p>统一查看和维护所有域名</p></div>
+      <header className="topbar"><div><h1>{pageTitles[activePage][0]}</h1><p>{pageTitles[activePage][1]}</p></div>
         <label className="global-search"><Icon name="search"/><input aria-label="全局搜索" placeholder="搜索域名、记录值或 IP" /></label>
         <div className="connection"><span className="status-dot"/> 连接正常</div>
       </header>
-      <div className="content">
+      <div className="content">{activePage === "workbench" ? <>
         <section className="metrics" aria-label="资源概览">
           <div><span>域名总数</span><strong>3</strong></div><div><span>解析记录总数</span><strong>25</strong></div><div><span>即将到期</span><strong className="warning">1</strong></div><div><span>异常域名</span><strong>0</strong></div>
-        </section>
+        </section></> : <ModulePage page={activePage} />}
         <section className="workspace">
           <div className="toolbar">
             <button className="primary" onClick={sync}><Icon name="sync"/>同步域名</button>
