@@ -23,7 +23,7 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - name: Build Tauri app and DMG
         run: npm run tauri build
       - uses: actions/upload-artifact@v4
