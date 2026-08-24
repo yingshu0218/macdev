@@ -8,3 +8,5 @@
 .module-labels { height: 40px; color: var(--muted); font-size: 12px; cursor: default; }
 .module-row .icon { width: 14px; color: var(--muted); }
 .row-status { color: var(--green); }
+.section-toggle { border: 0; background: transparent; cursor: pointer; }
+.section-toggle:hover { color: var(--text); }
