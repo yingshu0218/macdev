@@ -36,19 +36,29 @@ const moduleRows: Record<Exclude<PageId, "workbench">, string[][]> = {
   settings: [["桌面模式", "数据保存在本机", "已启用"], ["自动检查更新", "启动时检查新版本", "已启用"], ["应用锁", "离开时保护敏感数据", "未启用"]]
 };
 
-function ModulePage({ page }: { page: Exclude<PageId, "workbench"> }) {
+function ModulePage({ page, onAction }: { page: Exclude<PageId, "workbench">; onAction: (message: string) => void }) {
   const headings: Record<typeof page, string[]> = { projects: ["名称", "资源", "最近更新"], history: ["操作", "结果", "时间"], connections: ["服务商", "账号", "状态"], servers: ["服务器", "地址", "状态"], settings: ["设置项", "说明", "当前状态"] };
-  return <section className="module-page"><div className="module-head"><div><h2>{pageTitles[page][0]}</h2><p>{pageTitles[page][1]}</p></div><button className="primary">{page === "settings" ? "保存设置" : page === "history" ? "导出记录" : "添加"}</button></div>
-    <div className="module-table"><div className="module-row module-labels">{headings[page].map((item) => <span key={item}>{item}</span>)}</div>{moduleRows[page].map((row) => <button className="module-row" key={row[0]}>{row.map((item, index) => <span key={item} className={index === 2 ? "row-status" : ""}>{item}</span>)}<Icon name="chevron"/></button>)}</div></section>;
+  const primaryLabel = page === "settings" ? "保存设置" : page === "history" ? "导出记录" : "添加";
+  return <section className="module-page"><div className="module-head"><div><h2>{pageTitles[page][0]}</h2><p>{pageTitles[page][1]}</p></div><button className="primary" onClick={() => onAction(`${primaryLabel}操作已响应`)}>{primaryLabel}</button></div>
+    <div className="module-table"><div className="module-row module-labels">{headings[page].map((item) => <span key={item}>{item}</span>)}</div>{moduleRows[page].map((row) => <button className="module-row" key={row[0]} onClick={() => onAction(`已打开：${row[0]}`)}>{row.map((item, index) => <span key={item} className={index === 2 ? "row-status" : ""}>{item}</span>)}<Icon name="chevron"/></button>)}</div></section>;
 }
 
 function App() {
   const [activePage, setActivePage] = useState<PageId>("workbench");
+  const [dnsOpen, setDnsOpen] = useState(true);
+  const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
+  const [projectFilter, setProjectFilter] = useState("全部项目");
+  const [providerFilter, setProviderFilter] = useState("全部服务商");
+  const [statusFilter, setStatusFilter] = useState("全部状态");
   const [syncing, setSyncing] = useState(false);
   const [synced, setSynced] = useState(false);
   const [selected, setSelected] = useState<Domain | null>(null);
-  const filtered = useMemo(() => domains.filter((d) => `${d.name}${d.project}${d.provider}`.toLowerCase().includes(query.toLowerCase())), [query]);
+  const filtered = useMemo(() => domains.filter((d) => `${d.name}${d.project}${d.provider}`.toLowerCase().includes(query.toLowerCase())
+    && (projectFilter === "全部项目" || d.project === projectFilter)
+    && (providerFilter === "全部服务商" || d.provider.startsWith(providerFilter))
+    && (statusFilter === "全部状态" || d.status === statusFilter)), [query, projectFilter, providerFilter, statusFilter]);
+  const cycle = (current: string, options: string[], update: (value: string) => void) => update(options[(options.indexOf(current) + 1) % options.length]);
 
   const sync = () => {
     setSyncing(true); setSynced(false);
@@ -59,8 +69,8 @@ function App() {
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand"><span className="brand-mark">&lt;/&gt;</span><span>开发管理助手</span></div>
-      <div className="nav-section"><div className="section-title"><span>DNS 管理</span><span>⌃</span></div>
-        {nav.map(([id, label, icon]) => <button key={id} onClick={() => navigate(id)} aria-current={activePage === id ? "page" : undefined} className={`nav-item ${activePage === id ? "active" : ""}`}><Icon name={icon}/><span>{label}</span></button>)}
+      <div className="nav-section"><button className="section-title section-toggle" onClick={() => setDnsOpen((open) => !open)} aria-expanded={dnsOpen}><span>DNS 管理</span><span>{dnsOpen ? "⌃" : "⌄"}</span></button>
+        {dnsOpen ? nav.map(([id, label, icon]) => <button key={id} onClick={() => navigate(id)} aria-current={activePage === id ? "page" : undefined} className={`nav-item ${activePage === id ? "active" : ""}`}><Icon name={icon}/><span>{label}</span></button>) : null}
       </div>
       <div className="nav-divider" />
       <button onClick={() => navigate("servers")} className={`nav-item ${activePage === "servers" ? "active" : ""}`}><Icon name="server"/><span>服务器管理</span><span className="nav-tail">›</span></button>
@@ -70,25 +80,27 @@ function App() {
 
     <main className="main">
       <header className="topbar"><div><h1>{pageTitles[activePage][0]}</h1><p>{pageTitles[activePage][1]}</p></div>
-        <label className="global-search"><Icon name="search"/><input aria-label="全局搜索" placeholder="搜索域名、记录值或 IP" /></label>
+        <label className="global-search"><Icon name="search"/><input aria-label="全局搜索" value={query} onFocus={() => navigate("workbench")} onChange={(event) => setQuery(event.target.value)} placeholder="搜索域名、记录值或 IP" /></label>
         <div className="connection"><span className="status-dot"/> 连接正常</div>
       </header>
       <div className="content">{activePage === "workbench" ? <>
         <section className="metrics" aria-label="资源概览">
           <div><span>域名总数</span><strong>3</strong></div><div><span>解析记录总数</span><strong>25</strong></div><div><span>即将到期</span><strong className="warning">1</strong></div><div><span>异常域名</span><strong>0</strong></div>
-        </section></> : <ModulePage page={activePage} />}
+        </section>
         <section className="workspace">
           <div className="toolbar">
             <button className="primary" onClick={sync}><Icon name="sync"/>同步域名</button>
             <label className="filter-search"><Icon name="search"/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="筛选当前域名" /></label>
-            <button className="select-btn">全部项目 <span>⌄</span></button><button className="select-btn">全部服务商 <span>⌄</span></button><button className="select-btn">全部状态 <span>⌄</span></button>
+            <button className="select-btn" onClick={() => cycle(projectFilter, ["全部项目", "默认项目", "API 工作室", "个人实验室"], setProjectFilter)}>{projectFilter} <span>⌄</span></button>
+            <button className="select-btn" onClick={() => cycle(providerFilter, ["全部服务商", "阿里云", "腾讯云", "DNSPod"], setProviderFilter)}>{providerFilter} <span>⌄</span></button>
+            <button className="select-btn" onClick={() => cycle(statusFilter, ["全部状态", "正常", "即将到期"], setStatusFilter)}>{statusFilter} <span>⌄</span></button>
           </div>
           <div className="table-wrap"><table><thead><tr><th>域名</th><th>项目</th><th>服务商 / 账号</th><th>解析</th><th>到期时间</th><th>状态</th><th/></tr></thead>
             <tbody>{filtered.map((d) => <tr key={d.name} onClick={() => setSelected(d)}><td className="domain">{d.name}</td><td>{d.project}</td><td>{d.provider}</td><td>{d.records}</td><td className={d.status === "即将到期" ? "warning" : ""}>{d.expires}</td><td><span className={`state ${d.status === "正常" ? "ok" : "warn"}`}><i/>{d.status}</span></td><td><Icon name="chevron"/></td></tr>)}</tbody></table>
             {filtered.length === 0 && <div className="empty">没有找到匹配的域名</div>}
           </div>
           <div className="table-foot"><span>共 {filtered.length} 条</span><span>数据仅用于桌面版效果演示</span></div>
-        </section>
+        </section></> : <ModulePage page={activePage} onAction={setNotice} />}
       </div>
     </main>
 
@@ -98,8 +110,9 @@ function App() {
       <h2>{synced ? "同步成功" : "同步域名中…"}</h2><p>{synced ? "已成功同步 3 个域名，25 条解析记录" : "正在从 3 个服务商连接获取最新数据"}</p>
       {syncing && <div className="progress"><span/></div>}{synced && <button className="primary confirm" onClick={() => setSynced(false)}>确定</button>}
     </div></div>}
+    {notice && <div className="overlay" role="dialog" aria-modal="true"><div className="dialog"><button className="close" onClick={() => setNotice("")}>×</button><div className="result-icon success">✓</div><h2>操作已响应</h2><p>{notice}</p><button className="primary confirm" onClick={() => setNotice("")}>确定</button></div></div>}
 
-    {selected && <><div className="drawer-mask" onClick={() => setSelected(null)}/><aside className="drawer"><button className="close" onClick={() => setSelected(null)}>×</button><p className="eyeline">域名详情</p><h2>{selected.name}</h2><div className="detail-grid"><span>项目</span><strong>{selected.project}</strong><span>服务商</span><strong>{selected.provider}</strong><span>解析记录</span><strong>{selected.records} 条</strong><span>到期时间</span><strong>{selected.expires}</strong></div><button className="primary drawer-action">管理解析记录</button></aside></>}
+    {selected && <><div className="drawer-mask" onClick={() => setSelected(null)}/><aside className="drawer"><button className="close" onClick={() => setSelected(null)}>×</button><p className="eyeline">域名详情</p><h2>{selected.name}</h2><div className="detail-grid"><span>项目</span><strong>{selected.project}</strong><span>服务商</span><strong>{selected.provider}</strong><span>解析记录</span><strong>{selected.records} 条</strong><span>到期时间</span><strong>{selected.expires}</strong></div><button className="primary drawer-action" onClick={() => { setSelected(null); setNotice("解析记录管理已打开"); }}>管理解析记录</button></aside></>}
   </div>;
 }
 
