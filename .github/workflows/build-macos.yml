@@ -23,6 +23,8 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
       - run: npm install --no-audit --no-fund
+      - name: Generate application icons
+        run: npm run tauri icon src-tauri/app-icon.svg
       - name: Build Tauri app and DMG
         run: npm run tauri build
       - uses: actions/upload-artifact@v4
