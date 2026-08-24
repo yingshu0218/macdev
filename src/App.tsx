@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 type Domain = { name: string; project: string; provider: string; records: number; expires: string; status: "正常" | "即将到期" };
+type DNSRecord = { id: number; host: string; type: "A" | "CNAME" | "TXT"; value: string; ttl: number };
 
 const domains: Domain[] = [
   { name: "example.com", project: "默认项目", provider: "阿里云 / 主账号", records: 12, expires: "2026-06-15", status: "正常" },
@@ -54,6 +55,15 @@ function App() {
   const [syncing, setSyncing] = useState(false);
   const [synced, setSynced] = useState(false);
   const [selected, setSelected] = useState<Domain | null>(null);
+  const [drawerMode, setDrawerMode] = useState<"details" | "records">("details");
+  const [recordFormOpen, setRecordFormOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<DNSRecord | null>(null);
+  const [recordDraft, setRecordDraft] = useState({ host: "@", type: "A" as DNSRecord["type"], value: "", ttl: 600 });
+  const [records, setRecords] = useState<Record<string, DNSRecord[]>>({
+    "example.com": [{ id: 1, host: "@", type: "A", value: "47.100.10.8", ttl: 600 }, { id: 2, host: "www", type: "CNAME", value: "example.com", ttl: 600 }],
+    "api-studio.dev": [{ id: 3, host: "api", type: "A", value: "43.138.22.16", ttl: 300 }],
+    "mylab.cn": [{ id: 4, host: "@", type: "TXT", value: "site-verification=demo", ttl: 600 }]
+  });
   const filtered = useMemo(() => domains.filter((d) => `${d.name}${d.project}${d.provider}`.toLowerCase().includes(query.toLowerCase())
     && (projectFilter === "全部项目" || d.project === projectFilter)
     && (providerFilter === "全部服务商" || d.provider.startsWith(providerFilter))
@@ -64,7 +74,23 @@ function App() {
     setSyncing(true); setSynced(false);
     window.setTimeout(() => { setSyncing(false); setSynced(true); }, 900);
   };
-  const navigate = (page: PageId) => { setActivePage(page); setSelected(null); setSynced(false); setSyncing(false); };
+  const navigate = (page: PageId) => { setActivePage(page); setSelected(null); setDrawerMode("details"); setSynced(false); setSyncing(false); };
+  const openDomain = (domain: Domain) => { setSelected(domain); setDrawerMode("details"); };
+  const openRecordForm = (record?: DNSRecord) => {
+    setEditingRecord(record ?? null);
+    setRecordDraft(record ? { host: record.host, type: record.type, value: record.value, ttl: record.ttl } : { host: "@", type: "A", value: "", ttl: 600 });
+    setRecordFormOpen(true);
+  };
+  const saveRecord = () => {
+    if (!selected || !recordDraft.host.trim() || !recordDraft.value.trim()) return;
+    setRecords((current) => {
+      const list = current[selected.name] ?? [];
+      const next = editingRecord ? list.map((item) => item.id === editingRecord.id ? { ...recordDraft, id: item.id } : item) : [...list, { ...recordDraft, id: Date.now() }];
+      return { ...current, [selected.name]: next };
+    });
+    setRecordFormOpen(false); setEditingRecord(null);
+  };
+  const deleteRecord = (id: number) => selected && setRecords((current) => ({ ...current, [selected.name]: (current[selected.name] ?? []).filter((record) => record.id !== id) }));
 
   return <div className="app-shell">
     <aside className="sidebar">
@@ -96,7 +122,7 @@ function App() {
             <button className="select-btn" onClick={() => cycle(statusFilter, ["全部状态", "正常", "即将到期"], setStatusFilter)}>{statusFilter} <span>⌄</span></button>
           </div>
           <div className="table-wrap"><table><thead><tr><th>域名</th><th>项目</th><th>服务商 / 账号</th><th>解析</th><th>到期时间</th><th>状态</th><th/></tr></thead>
-            <tbody>{filtered.map((d) => <tr key={d.name} onClick={() => setSelected(d)}><td className="domain">{d.name}</td><td>{d.project}</td><td>{d.provider}</td><td>{d.records}</td><td className={d.status === "即将到期" ? "warning" : ""}>{d.expires}</td><td><span className={`state ${d.status === "正常" ? "ok" : "warn"}`}><i/>{d.status}</span></td><td><Icon name="chevron"/></td></tr>)}</tbody></table>
+            <tbody>{filtered.map((d) => <tr key={d.name} onClick={() => openDomain(d)}><td className="domain">{d.name}</td><td>{d.project}</td><td>{d.provider}</td><td>{records[d.name]?.length ?? 0}</td><td className={d.status === "即将到期" ? "warning" : ""}>{d.expires}</td><td><span className={`state ${d.status === "正常" ? "ok" : "warn"}`}><i/>{d.status}</span></td><td><Icon name="chevron"/></td></tr>)}</tbody></table>
             {filtered.length === 0 && <div className="empty">没有找到匹配的域名</div>}
           </div>
           <div className="table-foot"><span>共 {filtered.length} 条</span><span>数据仅用于桌面版效果演示</span></div>
@@ -112,7 +138,14 @@ function App() {
     </div></div>}
     {notice && <div className="overlay" role="dialog" aria-modal="true"><div className="dialog"><button className="close" onClick={() => setNotice("")}>×</button><div className="result-icon success">✓</div><h2>操作已响应</h2><p>{notice}</p><button className="primary confirm" onClick={() => setNotice("")}>确定</button></div></div>}
 
-    {selected && <><div className="drawer-mask" onClick={() => setSelected(null)}/><aside className="drawer"><button className="close" onClick={() => setSelected(null)}>×</button><p className="eyeline">域名详情</p><h2>{selected.name}</h2><div className="detail-grid"><span>项目</span><strong>{selected.project}</strong><span>服务商</span><strong>{selected.provider}</strong><span>解析记录</span><strong>{selected.records} 条</strong><span>到期时间</span><strong>{selected.expires}</strong></div><button className="primary drawer-action" onClick={() => { setSelected(null); setNotice("解析记录管理已打开"); }}>管理解析记录</button></aside></>}
+    {selected && <><div className="drawer-mask" onClick={() => setSelected(null)}/><aside className="drawer record-drawer"><button className="close" onClick={() => setSelected(null)}>×</button>
+      {drawerMode === "details" ? <><p className="eyeline">域名详情</p><h2>{selected.name}</h2><div className="detail-grid"><span>项目</span><strong>{selected.project}</strong><span>服务商</span><strong>{selected.provider}</strong><span>解析记录</span><strong>{records[selected.name]?.length ?? 0} 条</strong><span>到期时间</span><strong>{selected.expires}</strong></div><button className="primary drawer-action" onClick={() => setDrawerMode("records")}>管理解析记录</button></> : <>
+        <button className="back-button" onClick={() => setDrawerMode("details")}>← 返回域名详情</button><div className="records-title"><div><p className="eyeline">解析记录</p><h2>{selected.name}</h2></div><button className="primary" onClick={() => openRecordForm()}>新增解析</button></div>
+        <div className="records-list"><div className="record-row record-head"><span>主机</span><span>类型</span><span>记录值</span><span>TTL</span><span>操作</span></div>{(records[selected.name] ?? []).map((record) => <div className="record-row" key={record.id}><strong>{record.host}</strong><span className="record-type">{record.type}</span><span className="record-value">{record.value}</span><span>{record.ttl}</span><span className="record-actions"><button onClick={() => openRecordForm(record)}>编辑</button><button className="danger-link" onClick={() => deleteRecord(record.id)}>删除</button></span></div>)}</div>
+        {(records[selected.name] ?? []).length === 0 ? <div className="empty records-empty">暂无解析记录</div> : null}
+      </>}
+    </aside></>}
+    {recordFormOpen && selected && <div className="overlay record-overlay" role="dialog" aria-modal="true"><div className="dialog record-dialog"><button className="close" onClick={() => setRecordFormOpen(false)}>×</button><h2>{editingRecord ? "编辑解析记录" : "新增解析记录"}</h2><div className="record-form"><label>主机记录<input value={recordDraft.host} onChange={(event) => setRecordDraft({ ...recordDraft, host: event.target.value })}/></label><label>记录类型<select value={recordDraft.type} onChange={(event) => setRecordDraft({ ...recordDraft, type: event.target.value as DNSRecord["type"] })}><option>A</option><option>CNAME</option><option>TXT</option></select></label><label>记录值<input value={recordDraft.value} onChange={(event) => setRecordDraft({ ...recordDraft, value: event.target.value })} placeholder="请输入 IP、域名或文本"/></label><label>TTL<input type="number" value={recordDraft.ttl} onChange={(event) => setRecordDraft({ ...recordDraft, ttl: Number(event.target.value) })}/></label></div><div className="dialog-actions"><button className="select-btn" onClick={() => setRecordFormOpen(false)}>取消</button><button className="primary" disabled={!recordDraft.host.trim() || !recordDraft.value.trim()} onClick={saveRecord}>保存</button></div></div></div>}
   </div>;
 }
 
