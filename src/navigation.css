@@ -10,3 +10,28 @@
 .row-status { color: var(--green); }
 .section-toggle { border: 0; background: transparent; cursor: pointer; }
 .section-toggle:hover { color: var(--text); }
+.record-drawer { width: min(720px, 62vw); }
+.back-button { padding: 0; margin: 0 0 24px; color: var(--blue); background: transparent; border: 0; cursor: pointer; }
+.records-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+.records-title h2 { margin-bottom: 0; }
+.records-list { overflow: hidden; border: 1px solid var(--border); border-radius: 8px; }
+.record-row { min-height: 48px; padding: 10px 12px; display: grid; grid-template-columns: 70px 70px minmax(150px, 1fr) 60px 100px; gap: 10px; align-items: center; border-bottom: 1px solid var(--border); font-size: 12px; }
+.record-row:last-child { border-bottom: 0; }
+.record-head { min-height: 38px; color: var(--muted); background: var(--bg); }
+.record-type { width: fit-content; padding: 3px 7px; background: var(--hover); border-radius: 4px; font-family: ui-monospace, monospace; }
+.record-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.record-actions { display: flex; gap: 10px; }
+.record-actions button { padding: 0; color: var(--blue); background: transparent; border: 0; cursor: pointer; }
+.record-actions .danger-link { color: var(--red); }
+.records-empty { height: 150px; }
+.record-overlay { z-index: 30; }
+.record-dialog { width: 500px; text-align: left; }
+.record-dialog h2 { margin-bottom: 22px; }
+.record-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.record-form label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; }
+.record-form label:nth-child(3) { grid-column: 1 / -1; }
+.record-form input, .record-form select { height: 38px; padding: 0 10px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; outline: 0; }
+.record-form input:focus, .record-form select:focus { border-color: var(--blue); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+.dialog-actions .select-btn { min-width: 76px; justify-content: center; }
+button:disabled { cursor: not-allowed; opacity: .5; }
