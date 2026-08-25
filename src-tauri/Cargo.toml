@@ -1,0 +1,18 @@
+[package]
+name = "dev-admin-assistant"
+version = "0.1.0"
+description = "开发管理助手 Tauri 桌面版"
+authors = ["macdev contributors"]
+edition = "2021"
+
+[lib]
+name = "dev_admin_assistant_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
