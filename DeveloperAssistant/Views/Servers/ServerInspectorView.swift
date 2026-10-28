@@ -63,7 +63,7 @@ struct ServerInspectorView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("连接").font(.headline)
             LabeledContent("地址") {
-                Text("\(server.host):\(server.port)").font(.callout.monospaced()).textSelection(.enabled)
+                ServerAddressView(host: server.host).font(.callout.monospaced()).textSelection(.enabled)
             }
             LabeledContent("用户", value: server.username.isEmpty ? "—" : server.username)
             if let latency = server.latencyMilliseconds {
@@ -174,5 +174,44 @@ private struct FlowLayout: Layout {
             rowHeight = max(rowHeight, size.height)
         }
         return (CGSize(width: min(maxWidth, max(0, x - spacing)), height: y + rowHeight), points)
+    }
+}
+
+struct ServerAddressView: View {
+    let host: String
+    @State private var copyFeedbackID: UUID?
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(host)
+                .textSelection(.enabled)
+            Button {
+                NSPasteboard.general.clearContents()
+                if NSPasteboard.general.setString(host, forType: .string) {
+                    copyFeedbackID = UUID()
+                }
+            } label: {
+                HStack(spacing: 3) {
+                    Image(systemName: copyFeedbackID == nil ? "doc.on.doc" : "checkmark.circle.fill")
+                    if copyFeedbackID != nil {
+                        Text("已复制")
+                    }
+                }
+                .foregroundStyle(copyFeedbackID == nil ? Color.secondary : Color.green)
+            }
+            .buttonStyle(.borderless)
+            .help(copyFeedbackID == nil ? "复制 IP 地址" : "IP 地址已复制")
+            .accessibilityLabel(copyFeedbackID == nil ? "复制 IP 地址" : "IP 地址已复制，再次复制")
+        }
+        .task(id: copyFeedbackID) {
+            guard copyFeedbackID != nil else { return }
+            do {
+                try await Task.sleep(for: .seconds(2))
+                copyFeedbackID = nil
+            } catch {}
+        }
+        .onChange(of: host) { _, _ in
+            copyFeedbackID = nil
+        }
     }
 }

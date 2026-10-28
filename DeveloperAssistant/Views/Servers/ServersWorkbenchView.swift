@@ -206,7 +206,7 @@ struct ServersWorkbenchView: View {
             TableColumn("服务器") { server in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(server.name).fontWeight(.medium)
-                    Text(server.host)
+                    ServerAddressView(host: server.host)
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                 }
